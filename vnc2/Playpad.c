@@ -1,5 +1,6 @@
 //////////////////////////////////////////////////////////////////////
 // DUAL USB HOST FOR NOVATION LAUNCHPAD 
+
 //////////////////////////////////////////////////////////////////////
 
 //
@@ -31,7 +32,7 @@ typedef struct {
 	unsigned char uchDeviceNumberBase;
 	unsigned char uchDeviceNumber;
 	unsigned char uchActivityLed;
-	unsigned char uchMsg;
+	unsigned char uchMIDIChannel;
 } HOST_PORT_DATA;
 	
 VOS_HANDLE hGpioA;
@@ -105,9 +106,6 @@ int fifo_read(FIFO_TYPE *pfifo, unsigned char *data, int size)
 	return count;
 }
 
-#define MSG_PORTA 0x40
-#define MSG_PORTB 0x80
-	
 //
 // FUNCTION PROTOTYPES
 //
@@ -210,16 +208,15 @@ void main(void)
 	usbhostGeneric_init(VOS_DEV_USBHOSTGENERIC_2);
 
 	PortA.uchActivityLed = LED_USB_A;
-	PortA.uchMsg = MSG_PORTA;
+	PortA.uchMIDIChannel = 0;
 	PortA.uchDeviceNumberBase = VOS_DEV_USBHOST_1;
 	PortA.uchDeviceNumber = VOS_DEV_USBHOSTGENERIC_1;
 	
 	PortB.uchActivityLed = LED_USB_B;
-	PortB.uchMsg = MSG_PORTB;
+	PortB.uchMIDIChannel = 1;
 	PortB.uchDeviceNumberBase = VOS_DEV_USBHOST_2;
 	PortB.uchDeviceNumber = VOS_DEV_USBHOSTGENERIC_2;
 	
-
 	vos_init_semaphore(&setupSem,0);
 	fifo_init(&stSPIReadFIFO);
 	fifo_init(&stSPIWriteFIFO);
@@ -227,7 +224,7 @@ void main(void)
 	
 	tcbSetup = vos_create_thread_ex(10, 1024, Setup, "Setup", 0);
 	tcbHostA = vos_create_thread_ex(20, 1024, RunHostPort, "RunHostPortA", sizeof(HOST_PORT_DATA*), &PortA);
-	tcbHostB = vos_create_thread_ex(21, 1024, RunHostPort, "RunHostPortB", sizeof(HOST_PORT_DATA*), &PortB);
+	//tcbHostB = vos_create_thread_ex(21, 1024, RunHostPort, "RunHostPortB", sizeof(HOST_PORT_DATA*), &PortB);
 	tcbRunSPISend = vos_create_thread_ex(20, 1024, RunSPISend, "RunSPISend", 0);
 	tcbRunSPIReceive = vos_create_thread_ex(19, 1024, RunSPIReceive, "RunSPIReceive", 0);	
 	tcbRunUSBSend = vos_create_thread_ex(20, 1024, RunUSBSend, "RunUSBSend", 0);
@@ -334,9 +331,11 @@ unsigned char usbhost_connect_state(VOS_HANDLE hUSB)
 void RunHostPort(HOST_PORT_DATA *pHostData)
 {
 	int i;
-	int midiParam;
-	unsigned char status;
+	//unsigned char status;
 	unsigned char buf[64];	
+	unsigned char msg[3] = {0};
+	unsigned char firstParam = 1;
+	
 	unsigned short num_bytes;
 	unsigned int handle;
 	usbhostGeneric_ioctl_t generic_iocb;
@@ -390,15 +389,37 @@ void RunHostPort(HOST_PORT_DATA *pHostData)
 					VOS_ENTER_CRITICAL_SECTION;
 					pHostData->hUSBHOSTGENERIC = hUSB;
 					VOS_EXIT_CRITICAL_SECTION;
-										
+					
+					msg[0] = 0x0;
+					
 					// now we loop until the launchpad is detached
 					while(1)
 					{
 						// listen for data from launchpad
 						uint16 result = vos_dev_read(hUSB, buf, 64, &num_bytes);
 						if(0 != result)
-							break; // break when the launchpad is detached						
-						fifo_write(&stSPIWriteFIFO, buf, (int)num_bytes); 
+							break; // break when the launchpad is detached				
+
+						for(i=0; i<num_bytes; ++i)
+						{
+							if(buf[i]&0x80) // STATUS
+							{								
+								msg[0] = buf[i] | pHostData->uchMIDIChannel;
+								firstParam = 1;
+							}
+							else if(firstParam) // FIRST PARAM
+							{
+								msg[1] = buf[i];
+								firstParam = 0;
+							}
+							else	// SECOND PARAM
+							{
+								msg[2] = buf[i];
+								firstParam = 1;
+								if(msg[0])
+									fifo_write(&stSPIWriteFIFO, msg, 3); 
+							}
+						}
 					}					
 					
 					// flag that the port is no longer attached
