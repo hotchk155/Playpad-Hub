@@ -18,6 +18,7 @@ vos_tcb_t *tcbHostB;
 vos_tcb_t *tcbRunSPISend;
 vos_tcb_t *tcbRunSPIReceive;
 vos_tcb_t *tcbRunUSBSend;
+vos_tcb_t *tcbRunUARTReceive;
 
 
 vos_semaphore_t setupSem;
@@ -36,6 +37,7 @@ typedef struct {
 } HOST_PORT_DATA;
 	
 VOS_HANDLE hGpioA;
+VOS_HANDLE hUART;
 VOS_HANDLE hSPISlave;
 HOST_PORT_DATA PortA = {0};
 HOST_PORT_DATA PortB = {0};
@@ -45,8 +47,6 @@ uint8 gpioAOutput = 0;
 #define LED_USB_B 0x04
 #define LED_SIGNAL 0x08
 
-void setGpioA(uint8 mask, uint8 data);
-	
 ////////////////////////////////////////////////////////////////////////////////
 //
 // SYNCRONISED CIRCULAR FIFO BUFFER OF 32-BIT MESSAGES
@@ -114,6 +114,7 @@ void RunHostPort(HOST_PORT_DATA *pHostData);
 void RunSPISend();
 void RunSPIReceive();
 void RunUSBSend();
+void RunUARTReceive();
 	
 FIFO_TYPE stSPIReadFIFO;
 FIFO_TYPE stSPIWriteFIFO;
@@ -195,6 +196,9 @@ void main(void)
 	gpioCtx.port_identifier = GPIO_PORT_A;
 	gpio_init(VOS_DEV_GPIO_A,&gpioCtx); 
 	
+	// Initialise UART
+	uart_init(VOS_DEV_UART,NULL); 
+
 	// Initialise USB Host devices
 	usbhostContext.if_count = 8;
 	usbhostContext.ep_count = 16;
@@ -224,10 +228,11 @@ void main(void)
 	
 	tcbSetup = vos_create_thread_ex(10, 1024, Setup, "Setup", 0);
 	tcbHostA = vos_create_thread_ex(20, 1024, RunHostPort, "RunHostPortA", sizeof(HOST_PORT_DATA*), &PortA);
-	//tcbHostB = vos_create_thread_ex(21, 1024, RunHostPort, "RunHostPortB", sizeof(HOST_PORT_DATA*), &PortB);
+	tcbHostB = vos_create_thread_ex(21, 1024, RunHostPort, "RunHostPortB", sizeof(HOST_PORT_DATA*), &PortB);
 	tcbRunSPISend = vos_create_thread_ex(20, 1024, RunSPISend, "RunSPISend", 0);
 	tcbRunSPIReceive = vos_create_thread_ex(19, 1024, RunSPIReceive, "RunSPIReceive", 0);	
 	tcbRunUSBSend = vos_create_thread_ex(20, 1024, RunUSBSend, "RunUSBSend", 0);
+	tcbRunUARTReceive = vos_create_thread_ex(20, 512, RunUARTReceive, "RunUARTReceive", 0);
 
 	
 	// And start the thread
@@ -244,19 +249,17 @@ main_loop:
 //////////////////////////////////////////////////////////////////////
 void Setup()
 {
-	common_ioctl_cb_t spis_iocb;
-	usbhostGeneric_ioctl_t generic_iocb;
-	gpio_ioctl_cb_t gpio_iocb;
-	common_ioctl_cb_t uart_iocb;
+	gpio_ioctl_cb_t 		gpio_iocb;
+	common_ioctl_cb_t 		uart_iocb;
+	common_ioctl_cb_t 		ss_iocb;
+	
 	unsigned char uchLeds;
-	common_ioctl_cb_t ss_iocb;
 
 	hSPISlave = vos_dev_open(VOS_DEV_SPISLAVE);
 	
 	// Open up the base level drivers
-	hGpioA  	= vos_dev_open(VOS_DEV_GPIO_A);
+	hGpioA = vos_dev_open(VOS_DEV_GPIO_A);
 	
-
 	gpio_iocb.ioctl_code = VOS_IOCTL_GPIO_SET_MASK;
 	gpio_iocb.value = 0b11000110;
 	vos_dev_ioctl(hGpioA, &gpio_iocb);
@@ -286,6 +289,29 @@ void Setup()
 	ss_iocb.set.param = DMA_ACQUIRE_AND_RETAIN;
 	vos_dev_ioctl(hSPISlave, &ss_iocb);
 	
+	// UART
+	hUART = vos_dev_open(VOS_DEV_UART);
+
+	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_BAUD_RATE;
+	uart_iocb.set.uart_baud_rate = 31250;
+	vos_dev_ioctl(hUART,&uart_iocb);	
+		
+	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_FLOW_CONTROL;
+	uart_iocb.set.param = UART_FLOW_NONE;
+	vos_dev_ioctl(hUART,&uart_iocb);	
+	
+	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_DATA_BITS;
+	uart_iocb.set.param = UART_DATA_BITS_8;
+	vos_dev_ioctl(hUART,&uart_iocb);	
+	
+	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_STOP_BITS;
+	uart_iocb.set.param = UART_STOP_BITS_1;
+	vos_dev_ioctl(hUART,&uart_iocb);	
+	
+	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_PARITY;
+	uart_iocb.set.param = UART_PARITY_NONE;
+	vos_dev_ioctl(hUART,&uart_iocb);	
+		
 	// Release other application threads
 	vos_signal_semaphore(&setupSem);
 }
@@ -437,6 +463,42 @@ void RunHostPort(HOST_PORT_DATA *pHostData)
 		}
 	}
 }	
+
+////////////////////////////////////////////////////////////////////
+//	
+// RECEIVE DATA FROM UART
+//
+////////////////////////////////////////////////////////////////////
+unsigned char uartRxBuffer[1];
+void RunUARTReceive()
+{
+	unsigned short bytes_read;	
+	common_ioctl_cb_t spi_iocb;
+	int i;
+	
+	// wait for setup to complete
+	vos_wait_semaphore(&setupSem);
+	vos_signal_semaphore(&setupSem);
+
+	while(1)
+	{
+		if(0==vos_dev_read(hUART, (char*)uartRxBuffer, 1, &bytes_read))
+		{
+			for(i=0;i<bytes_read;++i)
+			{
+				switch(uartRxBuffer[i])
+				{
+					case 0xF8://TICK
+					case 0xFA://START
+					case 0xFB://CONTINUE
+					case 0xFC://STOP					
+						fifo_write(&stSPIWriteFIFO, &uartRxBuffer[i], 1);
+						break;
+				}
+			}
+		}
+	}
+}
 
 ////////////////////////////////////////////////////////////////////
 //	
