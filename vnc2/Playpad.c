@@ -1,124 +1,94 @@
 //////////////////////////////////////////////////////////////////////
-// DUAL USB HOST FOR NOVATION LAUNCHPAD 
+// 
 
 //////////////////////////////////////////////////////////////////////
 
 //
 // INCLUDE FILES
 //
-#include "Playpad.h"
+
+#include "vos.h"
+
+
+#include "USBHost.h"
+#include "ioctl.h"
+#include "SPISlave.h"
+#include "GPIO.h"
+#include "UART.h"
+#include "string.h"
+#include "errno.h"
+#include "timers.h"
+#include "stdlib.h"
 #include "USBHostGenericDrv.h"
 
+typedef unsigned char byte;
+
+enum {
+	VOS_DEV_GPIO_A,
+	VOS_DEV_UART,
+	VOS_DEV_SPISLAVE,
+	VOS_DEV_USBHOST,
+	VOS_DEV_USBHOSTGENERIC,
+	VOS_NUMBER_DEVICES	   
+};
+	
 //
 // VARIABLE DECL
 //
-vos_tcb_t *tcbSetup;
-vos_tcb_t *tcbHostA;
-vos_tcb_t *tcbHostB;
-vos_tcb_t *tcbRunSPISend;
-vos_tcb_t *tcbRunSPIReceive;
-vos_tcb_t *tcbRunUSBSend;
-vos_tcb_t *tcbRunUARTReceive;
+vos_tcb_t *setup_thread;
+vos_tcb_t *usb_thread;
+vos_tcb_t *spi_thread;
 
+vos_semaphore_t setup_complete_event;
 
-vos_semaphore_t setupSem;
+VOS_HANDLE gpio_handle;
+VOS_HANDLE spi_handle;
+VOS_HANDLE uart_handle;
+VOS_HANDLE usb_handle;
+VOS_HANDLE usb_function_handle;
 
+#define SZ_USB_RX_DATA 64
+byte usb_rx_data[SZ_USB_RX_DATA];
 
-//
-// TYPE DEFS
-//
-typedef struct {
-	VOS_HANDLE hUSBHOST;
-	VOS_HANDLE hUSBHOSTGENERIC;
-	unsigned char uchDeviceNumberBase;
-	unsigned char uchDeviceNumber;
-	unsigned char uchActivityLed;
-	unsigned char uchMIDIChannel;
-} HOST_PORT_DATA;
+byte gpio_status;
+#define SET_GPIO_STATUS(s) gpio_status |= (s); vos_dev_write(gpio_handle,&gpio_status,1,NULL)
+#define CLEAR_GPIO_STATUS(s) gpio_status &= ~(s); vos_dev_write(gpio_handle,&gpio_status,1,NULL)
+
+#define SET_SPI_OPTION(c, p) \
+	spi_cmd.ioctl_code = (c); \
+	spi_cmd.set.param = (p); \
+	vos_dev_ioctl(spi_handle, &spi_cmd);
 	
-VOS_HANDLE hGpioA;
-VOS_HANDLE hUART;
-VOS_HANDLE hSPISlave;
-HOST_PORT_DATA PortA = {0};
-HOST_PORT_DATA PortB = {0};
-uint8 gpioAOutput = 0;
+#define SET_UART_OPTION(c, p) \
+	uart_cmd.ioctl_code = (c); \
+	uart_cmd.set.param = (p); \
+	vos_dev_ioctl(uart_handle, &uart_cmd);
+
+#define SET_UART_BAUDRATE(c, p) \
+	uart_cmd.ioctl_code = (c); \
+	uart_cmd.set.uart_baud_rate = (p); \
+	vos_dev_ioctl(uart_handle, &uart_cmd);
+
+#define SET_GPIO_OPTION(c, p) \
+	gpio_cmd.ioctl_code = (c); \
+	gpio_cmd.value = (p); \
+	vos_dev_ioctl(gpio_handle, &gpio_cmd);
+
 
 #define LED_USB_A 0x02
 #define LED_USB_B 0x04
 #define LED_SIGNAL 0x08
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// SYNCRONISED CIRCULAR FIFO BUFFER OF 32-BIT MESSAGES
-//
-////////////////////////////////////////////////////////////////////////////////
-
-#define SZ_FIFO 150	
-typedef struct {
-	char data[SZ_FIFO];
-	uint8 head;
-	uint8 tail;
-	vos_semaphore_t semRead;
-	vos_semaphore_t semWrite;
-	vos_mutex_t mutex;
-} FIFO_TYPE;
-	
-#define FIFO_INC(d) ((d)<SZ_FIFO-1)?(d+1):0
-	
-////////////////////////////////////////////////////////////////////////////////
-void fifo_init(FIFO_TYPE *pfifo)
-{
-	memset(pfifo, 0, sizeof(FIFO_TYPE));
-	vos_init_semaphore(&pfifo->semRead, 0);
-	vos_init_semaphore(&pfifo->semWrite, SZ_FIFO-1);
-	vos_init_mutex(&pfifo->mutex, VOS_MUTEX_UNLOCKED);
-}
-	
-////////////////////////////////////////////////////////////////////////////////
-void fifo_write(FIFO_TYPE *pfifo, unsigned char *data, int count)
-{	
-	int i;
-	for(i=0; i<count; ++i)
-	{
-		vos_wait_semaphore(&pfifo->semWrite);	
-		vos_lock_mutex(&pfifo->mutex);
-		pfifo->data[pfifo->head] = data[i]; 
-		pfifo->head = FIFO_INC(pfifo->head);
-		vos_unlock_mutex(&pfifo->mutex);
-	}
-	vos_signal_semaphore(&pfifo->semRead);	
-}
-
-////////////////////////////////////////////////////////////////////////////////
-int fifo_read(FIFO_TYPE *pfifo, unsigned char *data, int size)
-{
-	int count = 0;
-	vos_wait_semaphore(&pfifo->semRead);	
-	vos_lock_mutex(&pfifo->mutex);
-	while(count < size && pfifo->tail != pfifo->head)
-	{
-		data[count] = pfifo->data[pfifo->tail];		
-		pfifo->tail = FIFO_INC(pfifo->tail);	
-		vos_signal_semaphore(&pfifo->semWrite);	
-		++count;
-	}
-	vos_unlock_mutex(&pfifo->mutex);
-	return count;
-}
-
 //
 // FUNCTION PROTOTYPES
 //
-void Setup();
-void RunHostPort(HOST_PORT_DATA *pHostData);
-void RunSPISend();
-void RunSPIReceive();
-void RunUSBSend();
-void RunUARTReceive();
+void setup();
+void run_spi_to_usb();
+void run_usb_to_spi();
+
 	
-FIFO_TYPE stSPIReadFIFO;
-FIFO_TYPE stSPIWriteFIFO;
-	
+
+
 //////////////////////////////////////////////////////////////////////
 //
 // IOMUX SETUP
@@ -160,15 +130,6 @@ void iomux_setup()
 	vos_iomux_define_input(	32, 	IOMUX_IN_SPI_SLAVE_0_CS);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// SET GPIO A
-////////////////////////////////////////////////////////////////////////////////
-void setGpioA(uint8 mask, uint8 data)
-{
-	gpioAOutput &= ~mask;
-	gpioAOutput |= data;
-	vos_dev_write(hGpioA,&gpioAOutput,1,NULL);
-}
 //////////////////////////////////////////////////////////////////////
 //
 // MAIN
@@ -176,9 +137,10 @@ void setGpioA(uint8 mask, uint8 data)
 //////////////////////////////////////////////////////////////////////
 void main(void)
 {
-	usbhost_context_t usbhostContext;
-	gpio_context_t gpioCtx;
-	spislave_context_t spiSlaveContext;
+	usbhost_context_t usb_ctx;
+	gpio_context_t gpio_ctx;
+	spislave_context_t spi_ctx;
+	uart_context_t uart_ctx;
 
 	// Kernel initialisation
 	vos_init(50, VOS_TICK_INTERVAL, VOS_NUMBER_DEVICES);
@@ -188,52 +150,33 @@ void main(void)
 	// Set up the io multiplexing
 	iomux_setup();
 
-	spiSlaveContext.slavenumber = SPI_SLAVE_0;
-	spiSlaveContext.buffer_size = 64;
-	spislave_init(VOS_DEV_SPISLAVE, &spiSlaveContext);
+	spi_ctx.slavenumber = SPI_SLAVE_0;
+	spi_ctx.buffer_size = 64;
+	spislave_init(VOS_DEV_SPISLAVE, &spi_ctx);
 	
 	// Initialise GPIO port A
-	gpioCtx.port_identifier = GPIO_PORT_A;
-	gpio_init(VOS_DEV_GPIO_A,&gpioCtx); 
+	gpio_ctx.port_identifier = GPIO_PORT_A;
+	gpio_init(VOS_DEV_GPIO_A,&gpio_ctx); 
 	
 	// Initialise UART
-	uart_init(VOS_DEV_UART,NULL); 
+	uart_ctx.buffer_size = 64;
+	uart_init(VOS_DEV_UART,&uart_ctx); 
 
-	// Initialise USB Host devices
-	usbhostContext.if_count = 8;
-	usbhostContext.ep_count = 16;
-	usbhostContext.xfer_count = 2;
-	usbhostContext.iso_xfer_count = 2;
-	usbhost_init(VOS_DEV_USBHOST_1, VOS_DEV_USBHOST_2, &usbhostContext);
+	// Initialise USB Host 
+	usb_ctx.if_count = 8;
+	usb_ctx.ep_count = 16;
+	usb_ctx.xfer_count = 2;
+	usb_ctx.iso_xfer_count = 2;
+	usbhost_init(VOS_DEV_USBHOST, -1, &usb_ctx);
 	
-
 	// Initialise the USB function device
-	usbhostGeneric_init(VOS_DEV_USBHOSTGENERIC_1);
-	usbhostGeneric_init(VOS_DEV_USBHOSTGENERIC_2);
-
-	PortA.uchActivityLed = LED_USB_A;
-	PortA.uchMIDIChannel = 0;
-	PortA.uchDeviceNumberBase = VOS_DEV_USBHOST_1;
-	PortA.uchDeviceNumber = VOS_DEV_USBHOSTGENERIC_1;
+	usbhostGeneric_init(VOS_DEV_USBHOSTGENERIC);
 	
-	PortB.uchActivityLed = LED_USB_B;
-	PortB.uchMIDIChannel = 1;
-	PortB.uchDeviceNumberBase = VOS_DEV_USBHOST_2;
-	PortB.uchDeviceNumber = VOS_DEV_USBHOSTGENERIC_2;
+	vos_init_semaphore(&setup_complete_event,0);
 	
-	vos_init_semaphore(&setupSem,0);
-	fifo_init(&stSPIReadFIFO);
-	fifo_init(&stSPIWriteFIFO);
-	
-	
-	tcbSetup = vos_create_thread_ex(10, 1024, Setup, "Setup", 0);
-	tcbHostA = vos_create_thread_ex(20, 1024, RunHostPort, "RunHostPortA", sizeof(HOST_PORT_DATA*), &PortA);
-	tcbHostB = vos_create_thread_ex(21, 1024, RunHostPort, "RunHostPortB", sizeof(HOST_PORT_DATA*), &PortB);
-	tcbRunSPISend = vos_create_thread_ex(20, 1024, RunSPISend, "RunSPISend", 0);
-	tcbRunSPIReceive = vos_create_thread_ex(19, 1024, RunSPIReceive, "RunSPIReceive", 0);	
-	tcbRunUSBSend = vos_create_thread_ex(20, 1024, RunUSBSend, "RunUSBSend", 0);
-	tcbRunUARTReceive = vos_create_thread_ex(20, 512, RunUARTReceive, "RunUARTReceive", 0);
-
+	setup_thread = vos_create_thread_ex(10, 1024, setup, "setup", 0);
+	usb_thread = vos_create_thread_ex(20, 1024, run_usb_to_spi, "run_usb_to_spi", 0);
+//	spi_thread = vos_create_thread_ex(20, 1024, run_spi_to_usb, "run_spi_to_usb", 0);
 	
 	// And start the thread
 	vos_start_scheduler();
@@ -244,88 +187,43 @@ main_loop:
 	
 //////////////////////////////////////////////////////////////////////
 //
+
 // APPLICATION SETUP THREAD FUNCTION
 //
 //////////////////////////////////////////////////////////////////////
-void Setup()
-{
-	gpio_ioctl_cb_t 		gpio_iocb;
-	common_ioctl_cb_t 		uart_iocb;
-	common_ioctl_cb_t 		ss_iocb;
+void setup()
+{	
+	gpio_ioctl_cb_t 		gpio_cmd;
+	common_ioctl_cb_t 		uart_cmd;
+	common_ioctl_cb_t 		spi_cmd;
 	
-	unsigned char uchLeds;
-
-	hSPISlave = vos_dev_open(VOS_DEV_SPISLAVE);
+	// open device handles
+	spi_handle = vos_dev_open(VOS_DEV_SPISLAVE);
+	gpio_handle = vos_dev_open(VOS_DEV_GPIO_A);	
+	uart_handle = vos_dev_open(VOS_DEV_UART);	
+	usb_handle = vos_dev_open(VOS_DEV_USBHOST);
+	usb_function_handle = NULL;
 	
-	// Open up the base level drivers
-	hGpioA = vos_dev_open(VOS_DEV_GPIO_A);
+	// initialise GPIO
+	SET_GPIO_OPTION(VOS_IOCTL_GPIO_SET_MASK, LED_USB_A|LED_USB_B|LED_SIGNAL)
 	
-	gpio_iocb.ioctl_code = VOS_IOCTL_GPIO_SET_MASK;
-	gpio_iocb.value = 0b11000110;
-	vos_dev_ioctl(hGpioA, &gpio_iocb);
-	setGpioA(0b11000110,0);
-
-	ss_iocb.ioctl_code = VOS_IOCTL_SPI_SLAVE_SCK_CPHA;
-	ss_iocb.set.param = SPI_SLAVE_SCK_CPHA_0;
-	vos_dev_ioctl(hSPISlave, &ss_iocb);
-
-	ss_iocb.ioctl_code = VOS_IOCTL_SPI_SLAVE_SCK_CPOL;
-	ss_iocb.set.param = SPI_SLAVE_SCK_CPOL_0;
-	vos_dev_ioctl(hSPISlave, &ss_iocb);
-	
-	ss_iocb.ioctl_code = VOS_IOCTL_SPI_SLAVE_DATA_ORDER;
-	ss_iocb.set.param = SPI_SLAVE_DATA_ORDER_MSB;
-	vos_dev_ioctl(hSPISlave, &ss_iocb);
-	
-	ss_iocb.ioctl_code = VOS_IOCTL_SPI_SLAVE_SET_MODE;
-	ss_iocb.set.param = SPI_SLAVE_MODE_FULL_DUPLEX;
-	vos_dev_ioctl(hSPISlave, &ss_iocb);
-
-	ss_iocb.ioctl_code = VOS_IOCTL_SPI_SLAVE_SET_ADDRESS;
-	ss_iocb.set.param = 0;
-	vos_dev_ioctl(hSPISlave, &ss_iocb);
-
-	ss_iocb.ioctl_code = VOS_IOCTL_COMMON_ENABLE_DMA;
-	ss_iocb.set.param = DMA_ACQUIRE_AND_RETAIN;
-	vos_dev_ioctl(hSPISlave, &ss_iocb);
+	// initialise SPI slave mode
+	SET_SPI_OPTION(VOS_IOCTL_SPI_SLAVE_SCK_CPHA, SPI_SLAVE_SCK_CPHA_0);
+	SET_SPI_OPTION(VOS_IOCTL_SPI_SLAVE_SCK_CPOL, SPI_SLAVE_SCK_CPOL_0);
+	SET_SPI_OPTION(VOS_IOCTL_SPI_SLAVE_DATA_ORDER, SPI_SLAVE_DATA_ORDER_MSB);
+	SET_SPI_OPTION(VOS_IOCTL_SPI_SLAVE_SET_MODE, SPI_SLAVE_MODE_FULL_DUPLEX);
+	SET_SPI_OPTION(VOS_IOCTL_SPI_SLAVE_SET_ADDRESS, 0);
+	SET_SPI_OPTION(VOS_IOCTL_COMMON_ENABLE_DMA, DMA_ACQUIRE_AND_RETAIN);
 	
 	// UART
-	hUART = vos_dev_open(VOS_DEV_UART);
-
-	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_BAUD_RATE;
-	uart_iocb.set.uart_baud_rate = 31250;
-	vos_dev_ioctl(hUART,&uart_iocb);	
-		
-	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_FLOW_CONTROL;
-	uart_iocb.set.param = UART_FLOW_NONE;
-	vos_dev_ioctl(hUART,&uart_iocb);	
-	
-	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_DATA_BITS;
-	uart_iocb.set.param = UART_DATA_BITS_8;
-	vos_dev_ioctl(hUART,&uart_iocb);	
-	
-	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_STOP_BITS;
-	uart_iocb.set.param = UART_STOP_BITS_1;
-	vos_dev_ioctl(hUART,&uart_iocb);	
-	
-	uart_iocb.ioctl_code = VOS_IOCTL_UART_SET_PARITY;
-	uart_iocb.set.param = UART_PARITY_NONE;
-	vos_dev_ioctl(hUART,&uart_iocb);	
+	SET_UART_BAUDRATE(VOS_IOCTL_UART_SET_BAUD_RATE, 9600);
+	SET_UART_OPTION(VOS_IOCTL_UART_SET_FLOW_CONTROL, UART_FLOW_NONE);
+	SET_UART_OPTION(VOS_IOCTL_UART_SET_DATA_BITS, UART_DATA_BITS_8);
+	SET_UART_OPTION(VOS_IOCTL_UART_SET_STOP_BITS, UART_STOP_BITS_1);
+	SET_UART_OPTION(VOS_IOCTL_UART_SET_PARITY, UART_PARITY_NONE);
 		
 	// Release other application threads
-	vos_signal_semaphore(&setupSem);
-}
-
-//////////////////////////////////////////////////////////////////////
-//
-// GET GPIO
-//
-//////////////////////////////////////////////////////////////////////
-byte getGPIO()
-{
-	unsigned char gpio;
-	vos_dev_read(hGpioA,&gpio,1,NULL);
-	return gpio;
+	vos_signal_semaphore(&setup_complete_event);
 }
 	
 //////////////////////////////////////////////////////////////////////
@@ -333,276 +231,103 @@ byte getGPIO()
 // Get connect state
 //
 //////////////////////////////////////////////////////////////////////
-unsigned char usbhost_connect_state(VOS_HANDLE hUSB)
-{
-	unsigned char connectstate = PORT_STATE_DISCONNECTED;
-	usbhost_ioctl_cb_t hc_iocb;
-
-	if (hUSB)
-	{
-		hc_iocb.ioctl_code = VOS_IOCTL_USBHOST_GET_CONNECT_STATE;
-		hc_iocb.get = &connectstate;
-		vos_dev_ioctl(hUSB, &hc_iocb);
+byte get_usb_host_connect_state(VOS_HANDLE usb_handle) {
+	usbhost_ioctl_cb_t usb_cmd;
+	byte connect_state = PORT_STATE_DISCONNECTED;
+	if (usb_handle) {
+		usb_cmd.ioctl_code = VOS_IOCTL_USBHOST_GET_CONNECT_STATE;
+		usb_cmd.get = &connect_state;
+		vos_dev_ioctl(usb_handle, &usb_cmd);
 	}
-
-	return connectstate;
+	return connect_state;
 }
-
 
 //////////////////////////////////////////////////////////////////////
 //
 // RUN USB HOST PORT
 //
 //////////////////////////////////////////////////////////////////////
-void RunHostPort(HOST_PORT_DATA *pHostData)
+void run_usb_to_spi()
 {
 	int i;
 	//unsigned char status;
-	unsigned char buf[64];	
-	unsigned char msg[3] = {0};
-	unsigned char firstParam = 1;
 	
-	unsigned short num_bytes;
-	unsigned int handle;
-	usbhostGeneric_ioctl_t generic_iocb;
-	usbhostGeneric_ioctl_cb_attach_t genericAtt;
-	usbhost_device_handle_ex ifDev;
-	usbhost_ioctl_cb_t hc_iocb;
-	usbhost_ioctl_cb_vid_pid_t hc_iocb_vid_pid;
+	unsigned short usb_rx_len;
+	//unsigned int handle;
+	usbhostGeneric_ioctl_t generic_function_cmd;
+	usbhostGeneric_ioctl_cb_attach_t generic_function_attach;
+	usbhost_device_handle_ex usb_device_handle;
+	usbhost_ioctl_cb_t usb_cmd;
+	usbhost_ioctl_cb_vid_pid_t vid_pid;
 	gpio_ioctl_cb_t gpio_iocb;
-	VOS_HANDLE hUSB;
+	VOS_HANDLE handle;
 
 	// wait for setup to complete
-	vos_wait_semaphore(&setupSem);
-	vos_signal_semaphore(&setupSem);
+	vos_wait_semaphore(&setup_complete_event);
+	vos_signal_semaphore(&setup_complete_event);
 	
-	// Open the base USB Host driver
-	pHostData->hUSBHOST = vos_dev_open(pHostData->uchDeviceNumberBase);
 	
 	// loop forever
 	while(1)
 	{
 		vos_delay_msecs(10);
 		// is the device enumerated on this port?
-		if (usbhost_connect_state(pHostData->hUSBHOST) == PORT_STATE_ENUMERATED)
+		if (get_usb_host_connect_state(usb_handle) == PORT_STATE_ENUMERATED)
 		{
-			// user ioctl to find first hub device
-			hc_iocb.ioctl_code = VOS_IOCTL_USBHOST_DEVICE_GET_NEXT_HANDLE;
-			hc_iocb.handle.dif = NULL;
-			hc_iocb.set = NULL;
-			hc_iocb.get = &ifDev;
-			if (vos_dev_ioctl(pHostData->hUSBHOST, &hc_iocb) == USBHOST_OK)
+			// Find the first USB device
+			usb_cmd.ioctl_code = VOS_IOCTL_USBHOST_DEVICE_GET_NEXT_HANDLE;
+			usb_cmd.handle.dif = NULL;
+			usb_cmd.set = NULL;
+			usb_cmd.get = &usb_device_handle;			
+			if (vos_dev_ioctl(usb_handle, &usb_cmd) == USBHOST_OK)
 			{
 				// query the device VID/PID
-				hc_iocb.ioctl_code = VOS_IOCTL_USBHOST_DEVICE_GET_VID_PID;
-				hc_iocb.handle.dif = ifDev;
-				hc_iocb.get = &hc_iocb_vid_pid;
+				usb_cmd.ioctl_code = VOS_IOCTL_USBHOST_DEVICE_GET_VID_PID;
+				usb_cmd.handle.dif = usb_device_handle;
+				usb_cmd.get = &vid_pid;
 				
 				// Load the function driver
-				hUSB = vos_dev_open(pHostData->uchDeviceNumber);
+				handle = vos_dev_open(VOS_DEV_USBHOSTGENERIC);
 				
 				// Attach the function driver to the base driver
-				genericAtt.hc_handle = pHostData->hUSBHOST;
-				genericAtt.ifDev = ifDev;
-				generic_iocb.ioctl_code = VOS_IOCTL_USBHOSTGENERIC_ATTACH;
-				generic_iocb.set.att = &genericAtt;
-				if (vos_dev_ioctl(hUSB, &generic_iocb) == USBHOSTGENERIC_OK)
+				generic_function_attach.hc_handle = usb_handle;
+				generic_function_attach.ifDev = usb_device_handle;
+				generic_function_cmd.ioctl_code = VOS_IOCTL_USBHOSTGENERIC_ATTACH;
+				generic_function_cmd.set.att = &generic_function_attach;
+				if (vos_dev_ioctl(handle, &generic_function_cmd) == USBHOSTGENERIC_OK)
 				{					
 					// Turn on the LED for this port
-					setGpioA(pHostData->uchActivityLed, pHostData->uchActivityLed);
+					SET_GPIO_STATUS(LED_USB_A);
 
 					// flag that the port is attached
 					VOS_ENTER_CRITICAL_SECTION;
-					pHostData->hUSBHOSTGENERIC = hUSB;
+					usb_function_handle = handle;
 					VOS_EXIT_CRITICAL_SECTION;
-					
-					msg[0] = 0x0;
-					
+										
 					// now we loop until the launchpad is detached
 					while(1)
-					{
+					{						
 						// listen for data from launchpad
-						uint16 result = vos_dev_read(hUSB, buf, 64, &num_bytes);
-						if(0 != result)
-							break; // break when the launchpad is detached				
-
-						for(i=0; i<num_bytes; ++i)
-						{
-							if(buf[i]&0x80) // STATUS
-							{								
-								msg[0] = buf[i] | pHostData->uchMIDIChannel;
-								firstParam = 1;
-							}
-							else if(firstParam) // FIRST PARAM
-							{
-								msg[1] = buf[i];
-								firstParam = 0;
-							}
-							else	// SECOND PARAM
-							{
-								msg[2] = buf[i];
-								firstParam = 1;
-								if(msg[0])
-									fifo_write(&stSPIWriteFIFO, msg, 3); 
-							}
-						}
-					}					
+						unsigned short result = vos_dev_read(handle, usb_rx_data, sizeof usb_rx_data, &usb_rx_len);
+						if(0 != result) {
+							// break when the launchpad is detached				
+							break; 
+						}								
+						vos_dev_write(spi_handle, usb_rx_data, usb_rx_len, NULL);
+					}
 					
 					// flag that the port is no longer attached
 					VOS_ENTER_CRITICAL_SECTION;
-					pHostData->hUSBHOSTGENERIC = NULL;
+					usb_function_handle = NULL;
 					VOS_EXIT_CRITICAL_SECTION;
 					
 					// turn off the activity LED
-					setGpioA(pHostData->uchActivityLed, 0);
+					CLEAR_GPIO_STATUS(LED_USB_A);
 				}
 				
 				// close the function driver
-				vos_dev_close(hUSB);
+				vos_dev_close(handle);
 			}
 		}
 	}
 }	
-
-////////////////////////////////////////////////////////////////////
-//	
-// RECEIVE DATA FROM UART
-//
-////////////////////////////////////////////////////////////////////
-unsigned char uartRxBuffer[1];
-void RunUARTReceive()
-{
-	unsigned short bytes_read;	
-	common_ioctl_cb_t spi_iocb;
-	int i;
-	
-	// wait for setup to complete
-	vos_wait_semaphore(&setupSem);
-	vos_signal_semaphore(&setupSem);
-
-	while(1)
-	{
-		if(0==vos_dev_read(hUART, (char*)uartRxBuffer, 1, &bytes_read))
-		{
-			for(i=0;i<bytes_read;++i)
-			{
-				switch(uartRxBuffer[i])
-				{
-					case 0xF8://TICK
-					case 0xFA://START
-					case 0xFB://CONTINUE
-					case 0xFC://STOP					
-						fifo_write(&stSPIWriteFIFO, &uartRxBuffer[i], 1);
-						break;
-				}
-			}
-		}
-	}
-}
-
-////////////////////////////////////////////////////////////////////
-//	
-// RECEIVE DATA FROM SPI
-//
-////////////////////////////////////////////////////////////////////
-unsigned char spiRxBuffer[64];
-void RunSPIReceive()
-{
-	unsigned short bytes_read;
-	
-	common_ioctl_cb_t spi_iocb;
-	
-	// wait for setup to complete
-	vos_wait_semaphore(&setupSem);
-	vos_signal_semaphore(&setupSem);
-
-	while(1)
-	{
-		spi_iocb.ioctl_code = VOS_IOCTL_COMMON_GET_RX_QUEUE_STATUS;
-		vos_dev_ioctl(hSPISlave, &spi_iocb);
-		if(spi_iocb.get.queue_stat)
-		{
-			if(0==vos_dev_read(hSPISlave, (char*)spiRxBuffer, spi_iocb.get.queue_stat, &bytes_read))
-				fifo_write(&stSPIReadFIFO, spiRxBuffer, (int)bytes_read);
-		}
-	}
-}
-
-////////////////////////////////////////////////////////////////////
-//	
-// SEND DATA TO SPI
-//
-////////////////////////////////////////////////////////////////////
-unsigned char spiSendBuffer[64];
-void RunSPISend()
-{
-	unsigned short bytes_written;
-	
-	
-	// wait for setup to complete
-	vos_wait_semaphore(&setupSem);
-	vos_signal_semaphore(&setupSem);
-
-	while(1)
-	{
-		int count = fifo_read(&stSPIWriteFIFO, spiSendBuffer, 64);		
-		vos_dev_write(hSPISlave, spiSendBuffer, (unsigned short)count, &bytes_written);		
-		//setGpioA(LED_SIGNAL,0); 
-		//setGpioA(LED_SIGNAL,LED_SIGNAL|LED_ACTIVITY); 		
-		
-	}
-}
-	
-////////////////////////////////////////////////////////////////////
-//	
-// SEND DATA TO USB
-//
-////////////////////////////////////////////////////////////////////
-unsigned char usbSendBuffer[64];
-void RunUSBSend()
-{
-	unsigned char attached;
-	uint8 msg[3];
-	int param = 1;	
-	int i;
-	unsigned short bytes_written;
-	VOS_HANDLE hUSB;
-	
-	// wait for setup to complete
-	vos_wait_semaphore(&setupSem);
-	vos_signal_semaphore(&setupSem);
-	
-	msg[0] = 0;
-	while(1)
-	{
-		int count = fifo_read(&stSPIReadFIFO, usbSendBuffer, 64);
-		for(i=0;i<count;++i)
-		{
-			if(usbSendBuffer[i]&0x80)
-			{				
-				msg[0] = usbSendBuffer[i];
-				param = 1;
-			}
-			else if(param == 1)
-			{
-				msg[1] = usbSendBuffer[i];
-				param = 2;
-			}
-			else if(param == 2)
-			{
-				msg[2] = usbSendBuffer[i];
-				param = 1;
-				if(msg[0])
-				{
-					VOS_ENTER_CRITICAL_SECTION;
-					hUSB = PortA.hUSBHOSTGENERIC;
-					VOS_EXIT_CRITICAL_SECTION;
-					if(hUSB)
-					{
-						vos_dev_write(hUSB, msg, 3, &bytes_written);						
-					}
-				}
-			}		
-		}
-	}
-}
