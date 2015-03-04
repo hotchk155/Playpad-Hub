@@ -37,8 +37,8 @@ void midi_note(byte chan, byte note, byte vel)
 void setup() 
 {
   // initialize SPI:
-  Serial.begin(9600);
-  Serial.println("start");
+  Serial.begin(31250);
+
   VNC2.begin();
   pinMode(LED_PIN,OUTPUT);
 }
@@ -52,8 +52,7 @@ void loop()
   byte buffer[SZ_BUFFER];   
   int count = VNC2.read(0,buffer,SZ_BUFFER);
   for(int i=0; i<count; ++i) {
-    Serial.print(buffer[i], HEX);
-    Serial.print(" ")
+    Serial.write(buffer[i]);
   }
     
 }

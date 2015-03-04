@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <VinTag>
  <version>1.0.0</version>
- <file name="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
+ <file name="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
   <enum name="IOMUX_SIGNALS" line="24" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\iomux.h">
    <value name="IOMUX_IN_DEBUGGER" const="0"/>
    <value name="IOMUX_IN_UART_RXD" const="1"/>
@@ -672,7 +672,7 @@
    <value name="DELAYED" const="4"/>
    <value name="GONE" const="5"/>
   </enum>
-  <enum name="__anon_enum_type_2" line="35" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
+  <enum name="__anon_enum_type_2" line="25" file="playpad.h">
    <value name="VOS_DEV_GPIO_A" const="0"/>
    <value name="VOS_DEV_UART" const="1"/>
    <value name="VOS_DEV_SPISLAVE" const="2"/>
@@ -941,7 +941,7 @@
    <typedef name="__unknown" line="39" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\vos.h"
     basetype="SHORT" baseattr="unsigned,ptr,"/>
   </proto>
-  <typedef name="byte" line="26" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
+  <typedef name="byte" line="16" file="playpad.h"
    basetype="CHAR" baseattr="unsigned,"/>
   <typedef name="tmr_ioctl_cb_t" line="68" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\drivers\include\timers.h"
    basename="_tmr_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
@@ -1032,39 +1032,9 @@
    basename="_usb_hubDescriptor_t" basetype="STRUCT" baseattr=""/>
   <typedef name="usb_hubPortStatus_t" line="434" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\drivers\include\USB.h"
    basename="_usb_hubPortStatus_t" basetype="STRUCT" baseattr=""/>
-  <label name="main_loop" line="186" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"/>  <proto name="iomux_setup" line="113" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
+  <proto name="run_hid_host" line="22" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
    basetype="VOID" baseattr="">
-  </proto>
-  <proto name="main" line="140" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   basetype="VOID" baseattr="">
-  </proto>
-  <proto name="run_usb_to_spi" line="562" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   basetype="VOID" baseattr="">
-  </proto>
-  <proto name="setup" line="196" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   basetype="VOID" baseattr="">
-  </proto>
-  <proto name="get_usb_host_connect_state" line="541" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   basetype="CHAR" baseattr="unsigned,">
-   <var name="usb_handle" line="541" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-    type="AUTO" storage="AUTO VAR" attr="param,"
-    basetype="SHORT" baseattr="unsigned,"/>
-  </proto>
-  <proto name="run_usb_generic_host_to_spi" line="237" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   basetype="VOID" baseattr="">
-   <var name="usb_handle" line="237" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-    type="AUTO" storage="AUTO VAR" attr="param,"
-    basetype="SHORT" baseattr="unsigned,"/>
-  </proto>
-  <proto name="run_usb_hid_to_spi" line="441" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   basetype="VOID" baseattr="">
-   <var name="usb_handle" line="441" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-    type="AUTO" storage="AUTO VAR" attr="param,"
-    basetype="SHORT" baseattr="unsigned,"/>
-  </proto>
-  <proto name="run_usb_midi_to_spi" line="313" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   basetype="VOID" baseattr="">
-   <var name="usb_handle" line="313" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
+   <var name="usb_handle" line="22" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
     type="AUTO" storage="AUTO VAR" attr="param,"
     basetype="SHORT" baseattr="unsigned,"/>
   </proto>
@@ -1179,6 +1149,9 @@
     type="AUTO" storage="AUTO VAR" attr="param,"
     basetype="CHAR" baseattr="unsigned,ptr,"/>
   </proto>
+  <var name="usb_rx_data" line="28" file="playpad.h"
+   type="AUTO" storage="EXTERN" attr="global,"
+   basetype="CHAR" baseattr="unsigned," basearray="64,"/>
   <proto name="vos_iocell_get_config" line="228" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\iomux.h"
    basetype="CHAR" baseattr="unsigned,">
    <var name="pin" line="228" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\iomux.h"
@@ -1232,6 +1205,15 @@
    <var name="pull" line="229" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\iomux.h"
     type="AUTO" storage="AUTO VAR" attr="param,"
     basetype="CHAR" baseattr="unsigned,"/>
+  </proto>
+  <proto name="send_output" line="32" file="playpad.h"
+   basetype="VOID" baseattr="">
+   <var name="data" line="32" file="playpad.h"
+    type="AUTO" storage="AUTO VAR" attr="param,"
+    basetype="CHAR" baseattr="unsigned,ptr,"/>
+   <var name="data_size" line="32" file="playpad.h"
+    type="AUTO" storage="AUTO VAR" attr="param,"
+    basetype="INT" baseattr="signed,"/>
   </proto>
   <proto name="vos_gpio_set_pin_mode" line="116" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\gpioctrl.h"
    basetype="CHAR" baseattr="unsigned,">
@@ -1346,6 +1328,12 @@
   </proto>
   <proto name="vos_get_idle_thread_tcb" line="101" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\vos.h"
    basename="_vos_tcb_t" basetype="STRUCT" baseattr="ptr,">
+  </proto>
+  <proto name="set_porta_led" line="34" file="playpad.h"
+   basetype="VOID" baseattr="">
+   <var name="val" line="34" file="playpad.h"
+    type="AUTO" storage="AUTO VAR" attr="param,"
+    basetype="CHAR" baseattr="unsigned,"/>
   </proto>
   <proto name="vos_dma_reset" line="76" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\dma.h"
    basetype="CHAR" baseattr="unsigned,">
@@ -1487,9 +1475,6 @@
    <var name="vos_dev_num" line="122" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\drivers\include\USBHostHID.h"
     type="AUTO" storage="AUTO VAR" attr="param,"
     basetype="CHAR" baseattr="unsigned,"/>
-  </proto>
-  <proto name="run_spi_to_usb" line="88" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   basetype="VOID" baseattr="">
   </proto>
   <proto name="vos_dma_wait_on_complete" line="81" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\dma.h"
    basetype="VOID" baseattr="">
@@ -1683,6 +1668,18 @@
     type="AUTO" storage="AUTO VAR" attr="param,"
     basetype="SHORT" baseattr="unsigned,"/>
   </proto>
+  <proto name="send_output_midi" line="33" file="playpad.h"
+   basetype="VOID" baseattr="">
+   <var name="b0" line="33" file="playpad.h"
+    type="AUTO" storage="AUTO VAR" attr="param,"
+    basetype="CHAR" baseattr="unsigned,"/>
+   <var name="b1" line="33" file="playpad.h"
+    type="AUTO" storage="AUTO VAR" attr="param,"
+    basetype="CHAR" baseattr="unsigned,"/>
+   <var name="b2" line="33" file="playpad.h"
+    type="AUTO" storage="AUTO VAR" attr="param,"
+    basetype="CHAR" baseattr="unsigned,"/>
+  </proto>
   <proto name="vos_unlock_mutex" line="134" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\vos.h"
    basetype="VOID" baseattr="">
    <var name="m" line="134" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\vos.h"
@@ -1806,6 +1803,12 @@
     type="AUTO" storage="AUTO VAR" attr="param,"
     basetype="CHAR" baseattr="unsigned,"/>
   </proto>
+  <proto name="run_launchpad_host" line="30" file="playpad.h"
+   basetype="VOID" baseattr="">
+   <var name="usb_handle" line="30" file="playpad.h"
+    type="AUTO" storage="AUTO VAR" attr="param,"
+    basetype="SHORT" baseattr="unsigned,"/>
+  </proto>
   <proto name="vos_gpio_read_port" line="121" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\gpioctrl.h"
    basetype="CHAR" baseattr="unsigned,">
    <var name="portId" line="121" file="D:\Dev\FTDI\Vinculum II Toolchain\Firmware\kernel\include\gpioctrl.h"
@@ -1896,265 +1899,91 @@
     type="AUTO" storage="AUTO VAR" attr="param,"
     basename="_vos_cond_var_t" basetype="STRUCT" baseattr="ptr,"/>
   </proto>
-  <var name="usb_handle" line="49" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basetype="SHORT" baseattr="unsigned,"/>
-  <var name="spi_handle" line="47" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basetype="SHORT" baseattr="unsigned,"/>
-  <var name="usb_thread" line="41" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basename="_vos_tcb_t" basetype="STRUCT" baseattr="ptr,"/>
-  <var name="spi_thread" line="42" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basename="_vos_tcb_t" basetype="STRUCT" baseattr="ptr,"/>
-  <var name="setup_complete_event" line="44" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basename="_vos_semaphore_t" basetype="STRUCT" baseattr=""/>
-  <var name="gpio_handle" line="46" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basetype="SHORT" baseattr="unsigned,"/>
-  <var name="uart_handle" line="48" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basetype="SHORT" baseattr="unsigned,"/>
-  <var name="usb_rx_data" line="53" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basetype="CHAR" baseattr="unsigned," basearray="64,"/>
-  <var name="gpio_status" line="55" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basetype="CHAR" baseattr="unsigned,"/>
-  <var name="setup_thread" line="40" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basename="_vos_tcb_t" basetype="STRUCT" baseattr="ptr,"/>
-  <var name="usb_function_handle" line="50" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="global,"
-   basetype="SHORT" baseattr="unsigned,"/>
- <function name="iomux_setup" line="113" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c" 
+  <proto name="run_midi_class_host" line="31" file="playpad.h"
+   basetype="VOID" baseattr="">
+   <var name="usb_handle" line="31" file="playpad.h"
+    type="AUTO" storage="AUTO VAR" attr="param,"
+    basetype="SHORT" baseattr="unsigned,"/>
+  </proto>
+ <function name="run_hid_host" line="22" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c" 
   basetype="VOID" baseattr="">
-  <block line="114" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-  </block>
- </function>
- <function name="main" line="140" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c" 
-  basetype="VOID" baseattr="">
-  <block line="141" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <var name="gpio_ctx" line="143" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_gpio_context_t" basetype="STRUCT" baseattr=""/>
-    <var name="uart_ctx" line="145" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_uart_context_t" basetype="STRUCT" baseattr=""/>
-    <var name="usb_ctx" line="142" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_context_t" basetype="STRUCT" baseattr=""/>
-    <var name="spi_ctx" line="144" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_spislave_context_t" basetype="STRUCT" baseattr=""/>
-  </block>
- </function>
- <function name="setup" line="196" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c" 
-  basetype="VOID" baseattr="">
-  <block line="197" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <var name="gpio_cmd" line="198" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_gpio_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
-    <var name="uart_cmd" line="199" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_common_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
-    <var name="usb_cmd" line="201" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
-    <var name="spi_cmd" line="200" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_common_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
-  </block>
- </function>
- <function name="run_usb_generic_host_to_spi" line="237" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c" 
-  basetype="VOID" baseattr="">
-  <var name="usb_handle" line="237" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="param,"
-   basetype="SHORT" baseattr="unsigned,"/>
-  <block line="237" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <var name="usb_handle" line="237" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr="param,"
-     basetype="SHORT" baseattr="unsigned,"/>
-    <var name="usb_cmd" line="239" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
-    <var name="vid_pid" line="240" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_vid_pid_t" basetype="STRUCT" baseattr=""/>
-    <var name="usb_device_handle" line="243" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
+  <block line="23" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+    <var name="mouseX" line="24" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
      type="AUTO" storage="AUTO VAR" attr=""
      basetype="INT" baseattr="signed,"/>
-    <var name="handle" line="246" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
+    <var name="mouseY" line="25" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
      type="AUTO" storage="AUTO VAR" attr=""
+     basetype="INT" baseattr="signed,"/>
+    <var name="mouseZ" line="26" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basetype="INT" baseattr="signed,"/>
+    <var name="int_endpoint" line="34" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basetype="INT" baseattr="signed,"/>
+    <var name="transfer_block" line="40" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basename="_usbhost_xfer_t" basetype="STRUCT" baseattr=""/>
+    <var name="usb_handle" line="22" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr="param,"
      basetype="SHORT" baseattr="unsigned,"/>
-    <var name="usb_rx_len" line="242" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
+    <var name="device_request" line="41" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
      type="AUTO" storage="AUTO VAR" attr=""
-     basetype="SHORT" baseattr="unsigned,"/>
-    <var name="generic_function_cmd" line="244" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
+     basename="_usb_deviceRequest_t" basetype="STRUCT" baseattr=""/>
+    <var name="mouseButtons" line="27" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
      type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhostGeneric_ioctl_t" basetype="STRUCT" baseattr=""/>
-    <var name="generic_function_attach" line="245" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
+     basetype="CHAR" baseattr="signed,"/>
+    <var name="usbhost_cmd" line="37" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
      type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhostGeneric_ioctl_cb_attach_t" basetype="STRUCT" baseattr=""/>
-   <block line="253" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <block line="269" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-     <block line="281" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-       <var name="result" line="283" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-        type="AUTO" storage="AUTO VAR" attr=""
-        basetype="SHORT" baseattr="unsigned,"/>
-      <block line="284" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
+     basename="_usbhost_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
+    <var name="status" line="32" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basetype="INT" baseattr="signed,"/>
+    <var name="device_class" line="38" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basename="_usbhost_ioctl_cb_class_t" basetype="STRUCT" baseattr=""/>
+    <var name="newMouseX" line="29" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basetype="INT" baseattr="signed,"/>
+    <var name="newMouseY" line="30" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basetype="INT" baseattr="signed,"/>
+    <var name="ctrl_endpoint" line="35" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basetype="INT" baseattr="signed,"/>
+    <var name="read_completion_event" line="36" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basename="_vos_semaphore_t" basetype="STRUCT" baseattr=""/>
+    <var name="interface_handle" line="33" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basetype="INT" baseattr="signed,"/>
+    <var name="endpoint_descriptor" line="42" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c"
+     type="AUTO" storage="AUTO VAR" attr=""
+     basename="_usbhost_ioctl_cb_ep_info_t" basetype="STRUCT" baseattr=""/>
+   <block line="55" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+    <block line="66" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+    </block>
+   </block>
+   <block line="82" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+   </block>
+   <block line="91" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+   </block>
+   <block line="117" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+    <block line="125" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+    </block>
+    <block line="130" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+     <block line="142" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+     </block>
+     <block line="147" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+     </block>
+     <block line="154" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+     </block>
+     <block line="159" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+     </block>
+     <block line="164" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
+      <block line="165" file="D:\GitHub\Playpad-Hub\vnc2\HIDDrv.c">
       </block>
      </block>
     </block>
-   </block>
-  </block>
- </function>
- <function name="run_usb_midi_to_spi" line="313" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c" 
-  basetype="VOID" baseattr="">
-  <var name="usb_handle" line="313" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="param,"
-   basetype="SHORT" baseattr="unsigned,"/>
-  <block line="314" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <var name="device_descriptor" line="326" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usb_deviceRequest_t" basetype="STRUCT" baseattr=""/>
-    <var name="transfer_block" line="325" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_xfer_t" basetype="STRUCT" baseattr=""/>
-    <var name="usb_handle" line="313" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr="param,"
-     basetype="SHORT" baseattr="unsigned,"/>
-    <var name="usbhost_cmd" line="322" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
-    <var name="state" line="315" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="CHAR" baseattr="unsigned,"/>
-    <var name="status" line="316" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="device_class" line="323" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_class_t" basetype="STRUCT" baseattr=""/>
-    <var name="rx_endpoint" line="319" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="tx_endpoint" line="318" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="ctrl_endpoint" line="320" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="read_completion_event" line="321" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_vos_semaphore_t" basetype="STRUCT" baseattr=""/>
-    <var name="interface_handle" line="317" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="endpoint_descriptor" line="327" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_ep_info_t" basetype="STRUCT" baseattr=""/>
-   <block line="342" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="352" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="361" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="370" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="377" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="410" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <block line="422" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    </block>
-   </block>
-  </block>
- </function>
- <function name="run_usb_hid_to_spi" line="441" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c" 
-  basetype="VOID" baseattr="">
-  <var name="usb_handle" line="441" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="param,"
-   basetype="SHORT" baseattr="unsigned,"/>
-  <block line="442" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <var name="int_endpoint" line="445" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="transfer_block" line="451" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_xfer_t" basetype="STRUCT" baseattr=""/>
-    <var name="usb_handle" line="441" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr="param,"
-     basetype="SHORT" baseattr="unsigned,"/>
-    <var name="device_request" line="452" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usb_deviceRequest_t" basetype="STRUCT" baseattr=""/>
-    <var name="usbhost_cmd" line="448" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
-    <var name="status" line="443" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="device_class" line="449" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_class_t" basetype="STRUCT" baseattr=""/>
-    <var name="data_buffer" line="454" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="CHAR" baseattr="unsigned,ptr,"/>
-    <var name="ctrl_endpoint" line="446" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="read_completion_event" line="447" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_vos_semaphore_t" basetype="STRUCT" baseattr=""/>
-    <var name="interface_handle" line="444" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="INT" baseattr="signed,"/>
-    <var name="endpoint_descriptor" line="453" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_ep_info_t" basetype="STRUCT" baseattr=""/>
-   <block line="467" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="476" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="485" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="494" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="499" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   </block>
-   <block line="518" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <block line="526" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    </block>
-   </block>
-  </block>
- </function>
- <function name="get_usb_host_connect_state" line="541" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c" 
-  basetype="CHAR" baseattr="unsigned,">
-  <var name="usb_handle" line="541" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-   type="AUTO" storage="AUTO VAR" attr="param,"
-   basetype="SHORT" baseattr="unsigned,"/>
-  <block line="541" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <var name="usb_handle" line="541" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr="param,"
-     basetype="SHORT" baseattr="unsigned,"/>
-    <var name="usb_cmd" line="542" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basename="_usbhost_ioctl_cb_t" basetype="STRUCT" baseattr=""/>
-    <var name="connect_state" line="543" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c"
-     type="AUTO" storage="AUTO VAR" attr=""
-     basetype="CHAR" baseattr="unsigned,"/>
-   <block line="544" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    <block line="548" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-    </block>
-   </block>
-  </block>
- </function>
- <function name="run_usb_to_spi" line="562" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c" 
-  basetype="VOID" baseattr="">
-  <block line="563" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
-   <block line="575" file="D:\GitHub\Playpad-Hub\vnc2\Playpad.c">
    </block>
   </block>
  </function>

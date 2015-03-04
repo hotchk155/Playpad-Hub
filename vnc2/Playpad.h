@@ -1,29 +1,35 @@
-#ifndef _PLAYPAD_H_
-#define _PLAYPAD_H_
-
-#include "vos.h"
-
-
-#include "USBHost.h"
-#include "ioctl.h"
-#include "SPISlave.h"
-#include "GPIO.h"
-#include "UART.h"
 #include "string.h"
 #include "errno.h"
 #include "timers.h"
 #include "stdlib.h"
+#include "vos.h"
+#include "ioctl.h"
+#include "SPISlave.h"
+#include "GPIO.h"
+#include "UART.h"
+#include "USB.h"
+#include "USBHost.h"
+#include "USBHID.h"
+#include "USBHostHID.h"
+#include "USBHostGenericDrv.h"
 
 typedef unsigned char byte;
 
-#define VOS_DEV_GPIO_A		   		0
-#define VOS_DEV_UART	   			1
-#define VOS_DEV_SPISLAVE	   		2
-#define VOS_DEV_USBHOST_1	  		3
-#define VOS_DEV_USBHOST_2	   		4
-#define VOS_DEV_USBHOSTGENERIC_1   	5
-#define VOS_DEV_USBHOSTGENERIC_2   	6
-#define VOS_NUMBER_DEVICES	   		7
+enum {
+	VOS_DEV_GPIO_A,
+	VOS_DEV_UART,
+	VOS_DEV_SPISLAVE,
+	VOS_DEV_USBHOST,
+	VOS_DEV_USBHOSTGENERIC,
+	VOS_NUMBER_DEVICES	   
+};
 
-#endif // _PLAYPAD_H_
+#define SZ_USB_RX_DATA 64
+extern byte usb_rx_data[SZ_USB_RX_DATA];
+void run_hid_host(VOS_HANDLE usb_handle);
+void run_launchpad_host(VOS_HANDLE usb_handle);
+void run_midi_class_host(VOS_HANDLE usb_handle);
+void send_output(byte *data, int data_size);
+void send_output_midi(byte b0, byte b1, byte b2);
+void set_porta_led(byte val);
 

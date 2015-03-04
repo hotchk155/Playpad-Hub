@@ -1036,7 +1036,8 @@
 		<fileType>4</fileType>
 		<isFileDirty>false</isFileDirty>
 		<VirtualFolder>{00000000-0000-0000-0000-000000000006}</VirtualFolder>
-	</LibraryFiles>	<Files>
+	</LibraryFiles>
+	<Files>
 		<filename>MidiClassDrv.c</filename>
 		<fileDir></fileDir>
 		<fileType>1</fileType>
@@ -1046,36 +1047,6 @@
 	<BuildList>
 		<filename>MidiClassDrv.c</filename>
 	</BuildList>
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	<Files>
 		<filename>HIDDrv.c</filename>
 		<fileDir></fileDir>
@@ -1086,22 +1057,6 @@
 	<BuildList>
 		<filename>HIDDrv.c</filename>
 	</BuildList>
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	<Files>
 		<filename>LaunchpadDrv.c</filename>
 		<fileDir></fileDir>
@@ -1111,64 +1066,16 @@
 	</Files>
 	<BuildList>
 		<filename>LaunchpadDrv.c</filename>
+	</BuildList>	<Files>
+		<filename>Playpad.h</filename>
+		<fileDir></fileDir>
+		<fileType>4</fileType>
+		<isFileDirty>false</isFileDirty>
+		<VirtualFolder></VirtualFolder>
+	</Files>
+	<BuildList>
+		<filename>Playpad.h</filename>
 	</BuildList>
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	
 	
 	
@@ -1196,49 +1103,24 @@
 		<filename>USB.h</filename>
 	</OpenFilesList>
 	<OpenFilesList>
-		<filename>USBHostHID.h</filename>
-	</OpenFilesList>
-	<OpenFilesList>
 		<filename>MidiClassDrv.c</filename>
 	</OpenFilesList>
 	<OpenFilesList>
 		<filename>HIDDrv.c</filename>
+		<actvieTabIndex>6</actvieTabIndex>
 	</OpenFilesList>
 	<OpenFilesList>
 		<filename>LaunchpadDrv.c</filename>
-		<actvieTabIndex>8</actvieTabIndex>
+	</OpenFilesList>
+	<OpenFilesList>
+		<filename>Playpad.h</filename>
+	</OpenFilesList>
+	<OpenFilesList>
+		<filename>USBHID.h</filename>
 	</OpenFilesList>
 	<BreakPointList>
 		<filename>Playpad.c</filename>
-		<lineNo>657</lineNo>
+		<lineNo>348</lineNo>
 		<isEnabled>true</isEnabled>
 	</BreakPointList>
-	<WatchVariableList>
-		<WatchVarName>msg</WatchVarName>
-		<DisplayType>2</DisplayType>
-	</WatchVariableList>
-	<WatchVariableList>
-		<WatchVarName>bytes_read</WatchVarName>
-		<DisplayType>2</DisplayType>
-	</WatchVariableList>
-	<WatchVariableList>
-		<WatchVarName>hUSB</WatchVarName>
-		<DisplayType>2</DisplayType>
-	</WatchVariableList>
-	<WatchVariableList>
-		<WatchVarName>pHostData</WatchVarName>
-		<DisplayType>2</DisplayType>
-	</WatchVariableList>
-	<WatchVariableList>
-		<WatchVarName>num_bytes</WatchVarName>
-		<DisplayType>2</DisplayType>
-	</WatchVariableList>
-	<WatchVariableList>
-		<WatchVarName>result</WatchVarName>
-		<DisplayType>2</DisplayType>
-	</WatchVariableList>
-	<WatchVariableList>
-		<WatchVarName>	status = vos_dev_ioctl(usb_handle, &amp;usbhost_cmd);</WatchVarName>
-		<DisplayType>2</DisplayType>
-	</WatchVariableList>
 </Project>
